@@ -26,7 +26,7 @@ export function Logo() {
     <Link href="/" className="flex min-w-0 items-center gap-2 no-underline sm:gap-3">
       <BrandMark className="h-9 w-9 shrink-0 sm:h-11 sm:w-11" />
       <span className="flex flex-col leading-tight">
-        <span className="whitespace-nowrap font-serif text-lg font-bold tracking-wide text-gold-light sm:text-[26px]">Shubh Mangal Savdhan</span>
+        <span className="whitespace-nowrap font-serif text-[17px] font-bold tracking-wide text-gold-light sm:text-[26px]">Shubh Mangal Savdhan</span>
         <span className="font-deva text-xs text-gold sm:text-sm" lang="hi">
           शुभ मंगल सावधान
         </span>
@@ -95,7 +95,7 @@ export function Header() {
                 Log in
               </Link>
               <Link href="/login?signup=1" className="btn-gold whitespace-nowrap px-3 text-sm sm:px-5 sm:text-[15px]">
-                Register free
+                Register<span className="hidden sm:inline">&nbsp;free</span>
               </Link>
             </>
           )}
