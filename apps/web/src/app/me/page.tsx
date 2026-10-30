@@ -157,6 +157,14 @@ function MeInner() {
       )}
       {resubmitError && <Alert tone="danger">{resubmitError}</Alert>}
 
+      <Link href="/verify" className="card flex items-center justify-between gap-3 p-5 text-ink no-underline hover:border-gold">
+        <span>
+          <strong>Get the ✓ Verified badge</strong>
+          <span className="block text-sm text-ink-muted">Confirm your ID and take a selfie. Verified profiles get noticed much more.</span>
+        </span>
+        <span className="btn-outline flex-none">Verify</span>
+      </Link>
+
       <div className="card flex flex-col gap-2 p-5">
         <div className="flex justify-between text-sm font-bold">
           <span>Profile completeness</span>

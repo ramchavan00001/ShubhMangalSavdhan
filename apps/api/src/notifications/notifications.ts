@@ -9,24 +9,41 @@ export interface NotifyInput {
   title: string;
   body: string;
   link?: string;
+  /** For INTEREST_RECEIVED: lets channels (WhatsApp) answer "Accept"/"Decline" for this interest. */
+  interestId?: string;
 }
 
+/** Extra delivery channel (email, WhatsApp…). It decides itself whether the member wants it. */
+export type NotificationChannel = (input: NotifyInput) => Promise<void>;
+
 /**
- * In-app notifications. Email/WhatsApp delivery plugs in here later (Phase 2) —
- * every notification already goes through `notify`.
+ * Every notification goes through `notify`: it is stored in-app, then handed to each
+ * registered channel. A failing channel never breaks the action that triggered it.
  */
 @Injectable()
 export class NotificationsService {
   private readonly log = new Logger('Notifications');
+  private readonly channels = new Map<string, NotificationChannel>();
 
   constructor(private readonly prisma: PrismaService) {}
 
+  registerChannel(name: string, channel: NotificationChannel) {
+    this.channels.set(name, channel);
+  }
+
   async notify(input: NotifyInput) {
+    const { interestId: _ignored, ...stored } = input;
     try {
-      await this.prisma.notification.create({ data: input });
+      await this.prisma.notification.create({ data: stored });
     } catch (e) {
-      // A failed notification must never break the action that triggered it.
       this.log.error(`Failed to store notification ${input.type}: ${(e as Error).message}`);
+    }
+    for (const [name, channel] of this.channels) {
+      try {
+        await channel(input);
+      } catch (e) {
+        this.log.error(`Channel ${name} failed for ${input.type}: ${(e as Error).message}`);
+      }
     }
   }
 }

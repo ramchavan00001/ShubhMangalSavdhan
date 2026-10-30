@@ -13,6 +13,7 @@ interface Dashboard {
   activeLast7Days: number;
   premiumMembers: number;
   pendingProfiles: number;
+  pendingVerifications: number;
   pendingPhotos: number;
   openReports: number;
   revenueThisMonthPaise: number;
@@ -45,6 +46,7 @@ export default function AdminDashboard() {
       <PageTitle title="Dashboard" />
       <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
         <Stat label="Waiting for approval" value={data.pendingProfiles} href="/admin/approvals" sub={`${data.pendingPhotos} new photos on live profiles`} />
+        <Stat label="Verifications to review" value={data.pendingVerifications} href="/admin/verifications" />
         <Stat label="Open reports" value={data.openReports} href="/admin/reports" />
         <Stat label="Members" value={data.users} href="/admin/users" />
         <Stat label="Sign-ups today" value={data.signupsToday} sub={`${data.signupsThisWeek} this week`} />

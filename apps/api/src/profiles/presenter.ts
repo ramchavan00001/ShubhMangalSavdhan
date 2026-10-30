@@ -77,6 +77,7 @@ export function toCard(p: ProfileWithPhotos, viewer: Viewer, accepted: boolean) 
     photoLocked: !showPhotos && p.photos.length > 0 ? photoLockReason(p) : null,
     matchPercent: matchPercent(viewer.preference, p),
     isNew: !!p.approvedAt && Date.now() - p.approvedAt.getTime() < 7 * 24 * 60 * 60 * 1000,
+    verified: !!(p.idVerifiedAt && p.selfieVerifiedAt),
   };
 }
 

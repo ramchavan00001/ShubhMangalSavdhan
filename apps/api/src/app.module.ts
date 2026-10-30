@@ -3,9 +3,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AccountModule } from './account/account.controller';
+import { AiModule } from './ai/ai.controller';
 import { AdminController } from './admin/admin.controller';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
+import { ChatModule } from './chat/chat.controller';
 import { AuthGuard, Public } from './common/auth';
 import { CoreModule } from './common/core.module';
 import { InteractionsModule } from './interactions/interactions.module';
@@ -14,6 +17,8 @@ import { MembershipModule } from './membership/membership.service';
 import { NotificationsModule } from './notifications/notifications';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProfilesModule } from './profiles/profiles.module';
+import { VerificationModule } from './verification/verification.controller';
+import { WhatsAppModule } from './whatsapp/whatsapp.controller';
 
 @Controller('health')
 class HealthController {
@@ -40,6 +45,11 @@ class HealthController {
     AuthModule,
     InteractionsModule,
     BillingModule,
+    ChatModule,
+    WhatsAppModule,
+    VerificationModule,
+    AccountModule,
+    AiModule,
   ],
   controllers: [HealthController, MastersController, AdminController],
   providers: [

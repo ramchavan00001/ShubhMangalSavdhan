@@ -30,12 +30,24 @@ interface PendingProfile {
   aboutMe: string | null;
   updatedAt: string;
   user: { phone: string; createdAt: string };
-  photos: { id: string; url: string; status: string; isMain: boolean }[];
+  photos: { id: string; url: string; status: string; isMain: boolean; aiRisk: number | null; aiFlags: string[] }[];
 }
 
 interface Approvals {
   profiles: PendingProfile[];
-  photos: { id: string; url: string; profile: { id: string; code: string; name: string } }[];
+  photos: { id: string; url: string; aiRisk: number | null; aiFlags: string[]; profile: { id: string; code: string; name: string } }[];
+}
+
+/** AI pre-screen result. Only a hint for moderators — they always decide. */
+function AiHint({ risk, flags }: { risk: number | null; flags: string[] }) {
+  if (risk == null) return null;
+  const tone = risk >= 70 ? 'bg-danger-bg text-danger' : risk >= 40 ? 'bg-[#FBF1DC] text-ink' : 'bg-success-bg text-success';
+  return (
+    <span className={`badge ${tone}`} title={flags.join(', ')}>
+      AI risk {risk}
+      {flags.length ? ` · ${flags.map((f) => f.toLowerCase().replace(/_/g, ' ')).join(', ')}` : ''}
+    </span>
+  );
 }
 
 const QUICK_REASONS = [
@@ -91,11 +103,12 @@ function ProfileReview({ p, onDone }: { p: PendingProfile; onDone: () => void })
       {p.photos.length > 0 ? (
         <ul className="flex flex-wrap gap-3">
           {p.photos.map((ph) => (
-            <li key={ph.id} className="flex w-28 flex-col gap-1">
+            <li key={ph.id} className="flex w-32 flex-col gap-1">
               <a href={mediaUrl(ph.url)!} target="_blank" rel="noopener">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={mediaUrl(ph.url)!} alt={`Photo of ${p.firstName}`} className="aspect-[4/5] w-28 object-cover" />
               </a>
+              <AiHint risk={ph.aiRisk} flags={ph.aiFlags} />
               {ph.status === 'REJECTED' ? (
                 <span className="text-xs text-danger">Rejected</span>
               ) : (
@@ -179,6 +192,9 @@ export default function ApprovalsPage() {
               <p className="px-3 pt-2 text-sm font-semibold">
                 {ph.profile.name} <span className="font-normal text-ink-muted">{ph.profile.code}</span>
               </p>
+              <div className="px-3 pt-1">
+                <AiHint risk={ph.aiRisk} flags={ph.aiFlags} />
+              </div>
               <div className="flex">
                 <button type="button" className="btn-ghost flex-1 text-sm text-success" onClick={() => photoDecision(ph.id, 'approve')}>
                   Approve

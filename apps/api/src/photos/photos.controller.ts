@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { User } from '@prisma/client';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
+import { AiService } from '../ai/ai.service';
 import { CurrentUser } from '../common/auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { acceptedConnections, canSeePhotos } from '../profiles/presenter';
@@ -31,6 +32,7 @@ export class PhotosController {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly profiles: ProfilesService,
+    private readonly ai: AiService,
   ) {}
 
   @Post()
@@ -48,6 +50,7 @@ export class PhotosController {
     const photo = await this.prisma.photo.create({
       data: { profileId: me.id, fileKey, mimeType: type.mime, isMain: count === 0, sortOrder: count },
     });
+    this.ai.screenInBackground(photo.id, file.buffer, type.mime as 'image/jpeg' | 'image/png' | 'image/webp');
     return { id: photo.id, url: `/photos/${photo.id}`, isMain: photo.isMain, status: photo.status };
   }
 

@@ -106,5 +106,64 @@ login 9000000001 priya
 expect "blocked member can't see the blocker" "False" "$(as priya "$API/search" | json "any(i['firstName']=='Rohan' for i in d['items'])")"
 expect "report a profile" "review this report" "$(as priya -X POST "$API/reports" -H "$J" -d "{\"profileId\":\"$SNEHA\",\"reason\":\"FAKE_PROFILE\"}")"
 
+echo "Chat"
+ROHAN_CODE=$(as rohan "$API/auth/me" | json "d['profile']['code']")
+ANJALI_CODE=$(as rohan "$API/search" | json "[i['code'] for i in d['items'] if i['firstName']=='Anjali'][0]")
+expect "free member can't start a chat" "Free members can reply" "$(as anjali -X POST "$API/chats/$ROHAN_CODE" -H "$J" -d '{"body":"Namaste"}')"
+expect "premium member starts a chat" '"fromMe":true' "$(as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"Namaste Anjali ji"}')"
+expect "phone numbers blocked in chat" "can’t be shared in chat" "$(as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"call 98765 43210"}')"
+expect "receiver sees unread count" '"unreadMessages":1' "$(as anjali "$API/auth/me")"
+expect "receiver sees the message" "Namaste Anjali ji" "$(as anjali "$API/chats/$ROHAN_CODE")"
+expect "opening the thread marks it read" '"unreadMessages":0' "$(as anjali "$API/auth/me")"
+expect "free member can reply" '"fromMe":true' "$(as anjali -X POST "$API/chats/$ROHAN_CODE" -H "$J" -d '{"body":"Namaste Rohan ji"}')"
+expect "not connected → no chat" "accepted an interest" "$(as sneha "$API/chats/$ROHAN_CODE")"
+
+echo "WhatsApp (test mode)"
+expect "consent starts off" '"digest":false,"shareProfile":false,"alerts":false' "$(as sneha "$API/whatsapp/preferences")"
+as sneha -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"digest":true,"alerts":true}' >/dev/null
+expect "joining digests later queues you for matches" '"shareProfile":true' "$(as rohan -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"shareProfile":true}')"
+expect "daily digest runs" '"sent":1' "$(as admin -X POST "$API/admin/whatsapp/run-digest")"
+DIGEST=$(as admin "$API/admin/whatsapp/messages?phone=9000000002" | json "[m['body'] for m in d['items'] if m['kind']=='DIGEST'][0]")
+expect "digest lists the match" "1. Rohan, " "$DIGEST"
+if [[ "$DIGEST" == *"Pawar"* || "$DIGEST" == *"9876500001"* ]]; then fail "digest hides surname and phone" "$DIGEST"; else ok "digest hides surname and phone"; fi
+sim() { as admin -X POST "$API/admin/whatsapp/simulate" -H "$J" -d "{\"phone\":\"$1\",\"text\":\"$2\"}"; }
+expect "\"1 pasand hai\" sends interest" "Rohan: interest sent" "$(sim 9000000002 '1 pasand hai')"
+expect "unknown reply shows the menu" "didn’t understand" "$(sim 9000000002 'what is his height?')"
+login 9000000004 meera
+as meera -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"alerts":true}' >/dev/null
+as rohan -X POST "$API/interests" -H "$J" -d "{\"profileId\":\"$MEERA\"}" >/dev/null
+expect "interest alert is sent" "is interested in you" "$(as admin "$API/admin/whatsapp/messages?phone=9000000004")"
+expect "\"Accept\" accepts the alerted interest" "connected with Rohan" "$(sim 9000000004 'Accept')"
+expect "STOP unsubscribes" "won’t get WhatsApp messages" "$(sim 9000000002 'STOP')"
+expect "STOP turns consent off" '"digest":false' "$(as sneha "$API/whatsapp/preferences")"
+expect "unregistered numbers are told to sign up" "isn't registered" "$(sim 9811100000 'hi')"
+
+echo "Verification"
+expect "starts unverified" '"verified":false' "$(as rohan "$API/verification")"
+expect "bad ID number rejected" "doesn’t look like a valid PAN" "$(as rohan -X POST "$API/verification/id" -H "$J" -d '{"docType":"PAN","number":"ABCD123","nameOnDoc":"Rohan Pawar"}')"
+expect "ID with matching name is approved (test mode)" '"status":"APPROVED","docType":"PAN","docLast4":"234F"' "$(as rohan -X POST "$API/verification/id" -H "$J" -d '{"docType":"PAN","number":"abcde 1234 f","nameOnDoc":"ROHAN SURESH PAWAR"}')"
+expect "verified name can't be changed" "verified against your ID" "$(as rohan -X PATCH "$API/profiles/me" -H "$J" -d '{"firstName":"Rahul"}')"
+expect "ID with a different name goes to review" '"status":"PENDING"' "$(as sneha -X POST "$API/verification/id" -H "$J" -d '{"docType":"VOTER_ID","number":"ABC1234567","nameOnDoc":"Sneha Joshi"}')"
+expect "selfie needs a profile photo" "Add a profile photo first" "$(as sneha -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+expect "selfie goes to a moderator" '"status":"PENDING"' "$(as rohan -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+expect "one review at a time" "still being reviewed" "$(as rohan -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+VID=$(as admin "$API/admin/verifications" | json "[v['id'] for v in d if v['type']=='SELFIE' and v['profile']['name']=='Rohan Pawar'][0]")
+expect "moderator can view the selfie" "smoke" "$(as admin "$API/admin/verifications/$VID/selfie")"
+if [[ "$(as sneha -o /dev/null -w '%{http_code}' "$API/admin/verifications/$VID/selfie")" == "403" ]]; then ok "members can't view selfies"; else fail "members can't view selfies" "not 403"; fi
+as admin -X POST "$API/admin/verifications/$VID/approve" >/dev/null
+expect "approved member gets the badge" '"verified":true' "$(as rohan "$API/verification")"
+expect "verified-only search" "Rohan" "$(as sneha "$API/search?verifiedOnly=true" | json "[i['firstName'] for i in d['items'] if i['verified']]")"
+
+echo "Email notifications"
+as anjali -X POST "$API/account/email" -H "$J" -d '{"email":"Anjali@Example.com"}' >/dev/null
+sleep 0.3
+ECODE=$(grep -o "verification code is [0-9]*" "$API_LOG" | tail -1 | awk '{print $NF}')
+expect "wrong code rejected" "Incorrect code" "$(as anjali -X POST "$API/account/email/verify" -H "$J" -d '{"code":"000000"}')"
+expect "email confirmed with the code" '"email":"anjali@example.com"' "$(as anjali -X POST "$API/account/email/verify" -H "$J" -d "{\"code\":\"$ECODE\"}")"
+as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"Shall our families talk this weekend?"}' >/dev/null
+sleep 0.3
+if grep -q "→ anjali@example.com | New message" "$API_LOG"; then ok "notification emailed"; else fail "notification emailed" "no email in log"; fi
+expect "same email can't be used twice" "already used by another account" "$(as sneha -X POST "$API/account/email" -H "$J" -d '{"email":"anjali@example.com"}')"
+
 echo
 echo "All $PASS checks passed."

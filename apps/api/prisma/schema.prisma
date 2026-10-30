@@ -35,10 +35,24 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  profile       Profile?
-  subscriptions Subscription[]
-  payments      Payment[]
-  notifications Notification[]
+  // Email (verified with a one-time code before we send anything to it)
+  emailVerifiedAt    DateTime?
+  pendingEmail       String?
+  emailCodeHash      String?
+  emailCodeExpiresAt DateTime?
+  notifyByEmail      Boolean   @default(true)
+
+  // WhatsApp — every flag starts OFF and is only switched on by the member (DPDP consent)
+  whatsappDigest       Boolean @default(false) // receive new-match digests
+  whatsappShareProfile Boolean @default(false) // appear in other members' digests
+  whatsappAlerts       Boolean @default(false) // interest alerts
+
+  profile          Profile?
+  subscriptions    Subscription[]
+  payments         Payment[]
+  notifications    Notification[]
+  consents         ConsentLog[]
+  whatsappMessages WhatsAppMessage[]
 }
 
 model OtpCode {
@@ -185,6 +199,10 @@ model Profile {
   rejectionReason String?
   approvedAt      DateTime?
 
+  // Verification badges (badge shows when both are set)
+  idVerifiedAt     DateTime?
+  selfieVerifiedAt DateTime?
+
   // Privacy
   hidden            Boolean           @default(false)
   photoVisibility   PhotoVisibility   @default(ALL)
@@ -206,6 +224,12 @@ model Profile {
   viewsReceived     ProfileView[]   @relation("ViewViewed")
   unlocksMade       ContactUnlock[] @relation("UnlockOwner")
   unlocksReceived   ContactUnlock[] @relation("UnlockTarget")
+  messagesSent      Message[]       @relation("MessageSender")
+  messagesReceived  Message[]       @relation("MessageReceiver")
+  digestItems       DigestItem[]    @relation("DigestRecipient")
+  digestAppearances DigestItem[]    @relation("DigestCandidate")
+  digests           Digest[]
+  verifications     Verification[]
 
   @@index([status, hidden, gender])
   @@index([city])
@@ -227,6 +251,11 @@ model Photo {
   status    PhotoStatus @default(PENDING)
   sortOrder Int         @default(0)
   createdAt DateTime    @default(now())
+
+  // AI pre-screening for moderators (empty until an AI key is configured)
+  aiRisk      Int? // 0 (fine) – 100 (almost certainly not allowed)
+  aiFlags     String[]
+  aiCheckedAt DateTime?
 
   @@index([profileId])
 }
@@ -440,4 +469,119 @@ model MasterItem {
 
   @@unique([type, value])
   @@index([type, active, sortOrder])
+}
+
+// ─────────────────────────────── Phase 2: chat ───────────────────────────────
+
+model Message {
+  id         String    @id @default(cuid())
+  senderId   String
+  sender     Profile   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   Profile   @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  body       String    @db.Text
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, readAt])
+}
+
+// ─────────────────────────────── Phase 2: WhatsApp ───────────────────────────────
+
+/// Append-only record of every consent given or withdrawn (DPDP Act proof).
+model ConsentLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // WHATSAPP_DIGEST | WHATSAPP_SHARE_PROFILE | WHATSAPP_ALERTS | EMAIL
+  granted   Boolean
+  source    String // WEB_SETTINGS | ONBOARDING | WHATSAPP_STOP
+  createdAt DateTime @default(now())
+
+  @@index([userId, kind, createdAt])
+}
+
+/// A new member waiting to be included in someone's digest. Each pair is sent at most once.
+model DigestItem {
+  id          String    @id @default(cuid())
+  recipientId String
+  recipient   Profile   @relation("DigestRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   Profile   @relation("DigestCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  digestId    String?
+  digest      Digest?   @relation(fields: [digestId], references: [id], onDelete: SetNull)
+  position    Int? // 1-based number shown in the message ("Interested 2")
+  createdAt   DateTime  @default(now())
+
+  @@unique([recipientId, candidateId])
+  @@index([recipientId, digestId])
+}
+
+model Digest {
+  id          String       @id @default(cuid())
+  recipientId String
+  recipient   Profile      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  sentAt      DateTime     @default(now())
+  items       DigestItem[]
+
+  @@index([recipientId, sentAt])
+}
+
+enum MessageDirection {
+  OUT
+  IN
+}
+
+model WhatsAppMessage {
+  id                String           @id @default(cuid())
+  userId            String?
+  user              User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  phone             String
+  direction         MessageDirection
+  kind              String // DIGEST | INTEREST_ALERT | REPLY | INBOUND
+  body              String           @db.Text
+  status            String // LOGGED (test mode) | SENT | FAILED | RECEIVED
+  providerMessageId String?          @unique
+  error             String?
+  interestId        String? // for interest alerts, so "Accept" knows which one
+  createdAt         DateTime         @default(now())
+
+  @@index([phone, createdAt])
+  @@index([kind, createdAt])
+}
+
+// ─────────────────────────────── Phase 2: verification ───────────────────────────────
+
+enum VerificationType {
+  ID
+  SELFIE
+}
+
+enum VerificationStatus {
+  PENDING // waiting for a moderator
+  APPROVED
+  REJECTED
+}
+
+model Verification {
+  id         String             @id @default(cuid())
+  profileId  String
+  profile    Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type       VerificationType
+  status     VerificationStatus @default(PENDING)
+  provider   String // "mock", "digilocker", "rekognition", "manual"…
+  // ID: never the full Aadhaar/PAN number — only type, last 4 and the name on it.
+  docType    String?
+  docLast4   String?
+  nameOnDoc  String?
+  // Selfie: stored privately, only moderators can view it.
+  fileKey    String?
+  score      Float?
+  reason     String?
+  createdAt  DateTime           @default(now())
+  reviewedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([profileId, type])
 }

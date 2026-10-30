@@ -40,6 +40,7 @@ class SearchQuery extends PageQuery {
   @IsOptional() @Transform(csv) maritalStatus?: string[];
   @IsOptional() @Transform(csv) diet?: string[];
   @IsOptional() @Transform(({ value }) => value === 'true' || value === true) @IsBoolean() withPhoto?: boolean;
+  @IsOptional() @Transform(({ value }) => value === 'true' || value === true) @IsBoolean() verifiedOnly?: boolean;
   @IsOptional() @IsIn(['newest', 'active']) sort?: string;
 }
 
@@ -154,6 +155,7 @@ export class MatchesController {
       and.push({ diet: { in: valid } });
     }
     if (q.withPhoto) and.push({ photos: { some: { status: 'APPROVED' } } });
+    if (q.verifiedOnly) and.push({ idVerifiedAt: { not: null }, selfieVerifiedAt: { not: null } });
 
     const orderBy: Prisma.ProfileOrderByWithRelationInput[] =
       q.sort === 'active' ? [{ user: { lastActiveAt: 'desc' } }] : [{ approvedAt: 'desc' }];

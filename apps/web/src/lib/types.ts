@@ -8,6 +8,7 @@ export interface Me {
   role: 'USER' | 'ADMIN';
   plan: { tier: Tier; name: string; endsAt: string | null };
   unreadNotifications: number;
+  unreadMessages: number;
   profile: {
     id: string;
     code: string;
@@ -40,6 +41,7 @@ export interface ProfileCard {
   photoLocked: string | null;
   matchPercent: number;
   isNew: boolean;
+  verified: boolean;
 }
 
 export interface ProfileDetail extends ProfileCard {
