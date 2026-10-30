@@ -10,10 +10,16 @@ import { ProfilesService } from '../profiles/profiles.service';
 
 type WithUser = Profile & { user: User };
 
+/** 919876543210 → "+91 98765 43210" */
+function formatPhone(phone: string) {
+  const local = phone.slice(-10);
+  return `+${phone.slice(0, -10)} ${local.slice(0, 5)} ${local.slice(5)}`;
+}
+
 function contactOf(p: WithUser) {
   return {
     name: [p.firstName, p.lastName].filter(Boolean).join(' '),
-    phone: `+${p.user.phone}`,
+    phone: formatPhone(p.user.phone),
     email: p.user.email,
     createdFor: p.createdFor,
   };

@@ -15,5 +15,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "postcss": "8.5.32",
+    "multer": "2.5.0"
   }
 }

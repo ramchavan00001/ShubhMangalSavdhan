@@ -31,7 +31,8 @@ export class AuthController {
   ) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Per-IP cap; per-phone limits live in AuthService. Kept generous for carrier-grade NAT.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('otp/request')
   @HttpCode(200)
   async requestOtp(@Body() dto: RequestOtpDto) {
@@ -40,7 +41,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('otp/verify')
   @HttpCode(200)
   async verifyOtp(@Body() dto: VerifyOtpDto, @Res({ passthrough: true }) res: Response) {
@@ -55,9 +56,11 @@ export class AuthController {
     return { isNew, me: await this.membership.me(user.id) };
   }
 
+  /** Logged-out visitors get an empty 200, so the site can check sessions without console errors. */
+  @Public()
   @Get('me')
-  me(@CurrentUser() user: User) {
-    return this.membership.me(user.id);
+  me(@CurrentUser() user?: User) {
+    return user ? this.membership.me(user.id) : null;
   }
 
   @Public()
