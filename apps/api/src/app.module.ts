@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccountModule } from './account/account.controller';
+import { AiModule } from './ai/ai.controller';
 import { AdminController } from './admin/admin.controller';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
@@ -48,6 +49,7 @@ class HealthController {
     WhatsAppModule,
     VerificationModule,
     AccountModule,
+    AiModule,
   ],
   controllers: [HealthController, MastersController, AdminController],
   providers: [

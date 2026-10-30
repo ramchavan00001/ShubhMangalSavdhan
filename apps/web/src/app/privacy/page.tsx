@@ -37,7 +37,12 @@ export default function PrivacyPage() {
         your personal data.
       </p>
       <H2>Service providers</H2>
-      <p>We use trusted providers to run the service — for example hosting (India region), SMS (OTP) and payment processing. They may process your data only on our instructions.</p>
+      <p>We use trusted providers to run the service — for example hosting (India region), SMS (OTP), WhatsApp messaging, email and payment processing. They may process your data only on our instructions.</p>
+      <p>
+        We use an AI service (Anthropic’s Claude) to pre-check uploaded photos for our moderators, to draft profile descriptions when you
+        ask for help, and to understand WhatsApp replies. Only what each task needs is sent — never your phone number or contact details
+        for drafting. AI never approves or rejects anything on its own; our team does.
+      </p>
       <H2>Sensitive information</H2>
       <p>Religion, community and photos can be sensitive. We collect them only because matrimonial matching depends on them, and only with your consent when you add them to your profile.</p>
       <H2>Your rights</H2>

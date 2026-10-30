@@ -114,18 +114,24 @@ export class AdminController {
       this.prisma.photo.findMany({
         where: { status: 'PENDING', profile: { status: 'APPROVED' } },
         include: { profile: { select: { id: true, seq: true, firstName: true, lastName: true } } },
-        orderBy: { createdAt: 'asc' },
+        // Riskiest first (AI pre-screen), then oldest; unscreened photos after screened ones.
+        orderBy: [{ aiRisk: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
         take: 100,
       }),
     ]);
     return {
-      profiles: profiles.map((p) => ({
+      profiles: profiles
+        .map((p) => ({
         ...p,
         code: profileCode(p.seq),
         age: p.dateOfBirth ? ageOn(p.dateOfBirth) : null,
-        photos: p.photos.map((ph) => ({ id: ph.id, url: `/photos/${ph.id}`, status: ph.status, isMain: ph.isMain })),
-      })),
+        photos: p.photos.map((ph) => ({ id: ph.id, url: `/photos/${ph.id}`, status: ph.status, isMain: ph.isMain, aiRisk: ph.aiRisk, aiFlags: ph.aiFlags })),
+        maxAiRisk: Math.max(-1, ...p.photos.map((ph) => ph.aiRisk ?? -1)),
+      }))
+        .sort((a, b) => b.maxAiRisk - a.maxAiRisk),
       photos: photos.map((ph) => ({
+        aiRisk: ph.aiRisk,
+        aiFlags: ph.aiFlags,
         id: ph.id,
         url: `/photos/${ph.id}`,
         profile: { id: ph.profile.id, code: profileCode(ph.profile.seq), name: fullName(ph.profile) },

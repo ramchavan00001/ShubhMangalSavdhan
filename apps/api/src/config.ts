@@ -76,6 +76,11 @@ export function loadConfig() {
       pass: process.env.SMTP_PASS ?? '',
       from: process.env.EMAIL_FROM ?? 'Shubh Mangal Savdhan <no-reply@example.com>',
     },
+    ai: {
+      // AI features switch on when a key is set; without it the site works normally without them.
+      apiKey: process.env.ANTHROPIC_API_KEY ?? '',
+      model: process.env.AI_MODEL ?? 'claude-opus-5-5',
+    },
     /** "mock": IDs auto-approve when the name matches (development). "manual": moderators review every ID. */
     kycProvider,
     uploadDir: resolve(process.env.UPLOAD_DIR ?? 'uploads'),

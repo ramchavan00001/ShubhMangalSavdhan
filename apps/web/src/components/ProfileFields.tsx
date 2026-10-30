@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useMasters, values as masterValues } from '@/lib/hooks';
+import { BioWriter } from './BioWriter';
 import type { OwnProfile } from '@/lib/types';
 import {
   CREATED_FOR,
@@ -170,24 +171,27 @@ export const MIN_ABOUT = 50;
 export function AboutFields({ values, set }: { values: Values; set: Setter }) {
   const text = (values.aboutMe as string) ?? '';
   return (
-    <label className="label">
-      <span>
-        About {values.createdFor && values.createdFor !== 'SELF' ? 'them' : 'yourself'}
-        <span className="text-maroon"> *</span>
-      </span>
-      <textarea
-        className="input min-h-[180px] leading-relaxed"
-        required
-        minLength={MIN_ABOUT}
-        maxLength={2000}
-        value={text}
-        onChange={(e) => set('aboutMe', e.target.value)}
-        placeholder="Talk about personality, interests, family, and what you hope for in a life partner."
-      />
-      <span className={`text-xs font-normal ${text.trim().length < MIN_ABOUT ? 'text-ink-muted' : 'text-success'}`}>
-        {text.trim().length} / {MIN_ABOUT} characters minimum. Please don’t include phone numbers or emails.
-      </span>
-    </label>
+    <div className="flex flex-col gap-3">
+      <label className="label">
+        <span>
+          About {values.createdFor && values.createdFor !== 'SELF' ? 'them' : 'yourself'}
+          <span className="text-maroon"> *</span>
+        </span>
+        <textarea
+          className="input min-h-[180px] leading-relaxed"
+          required
+          minLength={MIN_ABOUT}
+          maxLength={2000}
+          value={text}
+          onChange={(e) => set('aboutMe', e.target.value)}
+          placeholder="Talk about personality, interests, family, and what you hope for in a life partner."
+        />
+        <span className={`text-xs font-normal ${text.trim().length < MIN_ABOUT ? 'text-ink-muted' : 'text-success'}`}>
+          {text.trim().length} / {MIN_ABOUT} characters minimum. Please don’t include phone numbers or emails.
+        </span>
+      </label>
+      <BioWriter onDraft={(draft) => set('aboutMe', draft)} />
+    </div>
   );
 }
 
