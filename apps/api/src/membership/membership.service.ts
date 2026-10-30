@@ -60,7 +60,10 @@ export class MembershipService {
     const sub = await this.activeSubscription(userId);
     const tier: PlanTier = sub ? 'PREMIUM' : 'FREE';
     const p = user.profile;
-    const unread = await this.prisma.notification.count({ where: { userId, readAt: null } });
+    const [unread, unreadMessages] = await Promise.all([
+      this.prisma.notification.count({ where: { userId, readAt: null } }),
+      p ? this.prisma.message.count({ where: { receiverId: p.id, readAt: null } }) : 0,
+    ]);
     return {
       id: user.id,
       phone: user.phone,
@@ -68,6 +71,7 @@ export class MembershipService {
       role: user.role,
       plan: { tier, name: PLANS[tier].name, endsAt: sub?.endsAt ?? null },
       unreadNotifications: unread,
+      unreadMessages,
       profile: p && {
         id: p.id,
         code: profileCode(p.seq),

@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminController } from './admin/admin.controller';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
+import { ChatModule } from './chat/chat.controller';
 import { AuthGuard, Public } from './common/auth';
 import { CoreModule } from './common/core.module';
 import { InteractionsModule } from './interactions/interactions.module';
@@ -40,6 +41,7 @@ class HealthController {
     AuthModule,
     InteractionsModule,
     BillingModule,
+    ChatModule,
   ],
   controllers: [HealthController, MastersController, AdminController],
   providers: [

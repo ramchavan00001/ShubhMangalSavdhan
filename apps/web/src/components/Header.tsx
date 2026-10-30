@@ -11,6 +11,7 @@ const MEMBER_LINKS = [
   { href: '/matches', label: 'Matches' },
   { href: '/search', label: 'Search' },
   { href: '/inbox', label: 'Inbox' },
+  { href: '/chat', label: 'Chat' },
   { href: '/contacts', label: 'Contacts' },
   { href: '/plans', label: 'Plans' },
 ];
@@ -62,6 +63,11 @@ export function Header() {
               className={`no-underline hover:text-gold ${pathname.startsWith(l.href) ? 'text-gold' : 'text-gold-light'}`}
             >
               {l.label}
+              {l.href === '/chat' && !!me?.unreadMessages && (
+                <span className="badge ml-1.5 bg-gold text-maroon-deep" aria-label={`${me.unreadMessages} unread`}>
+                  {me.unreadMessages}
+                </span>
+              )}
             </Link>
           ))}
           {me?.role === 'ADMIN' && (

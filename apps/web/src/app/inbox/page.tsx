@@ -90,9 +90,14 @@ function InboxInner() {
                 </button>
               )}
               {box === 'accepted' && (
-                <Link href={`/profile/${it.profile.code}`} className="btn-gold text-sm">
-                  View contact options
-                </Link>
+                <>
+                  <Link href={`/chat/${it.profile.code}`} className="btn-primary text-sm">
+                    Chat
+                  </Link>
+                  <Link href={`/profile/${it.profile.code}`} className="btn-outline text-sm">
+                    View contact options
+                  </Link>
+                </>
               )}
               {box === 'declined' && it.direction === 'received' && (
                 <button type="button" className="btn-ghost text-sm" disabled={!approved} onClick={() => act(`/interests/${it.id}/accept`)}>

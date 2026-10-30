@@ -106,5 +106,17 @@ login 9000000001 priya
 expect "blocked member can't see the blocker" "False" "$(as priya "$API/search" | json "any(i['firstName']=='Rohan' for i in d['items'])")"
 expect "report a profile" "review this report" "$(as priya -X POST "$API/reports" -H "$J" -d "{\"profileId\":\"$SNEHA\",\"reason\":\"FAKE_PROFILE\"}")"
 
+echo "Chat"
+ROHAN_CODE=$(as rohan "$API/auth/me" | json "d['profile']['code']")
+ANJALI_CODE=$(as rohan "$API/search" | json "[i['code'] for i in d['items'] if i['firstName']=='Anjali'][0]")
+expect "free member can't start a chat" "Free members can reply" "$(as anjali -X POST "$API/chats/$ROHAN_CODE" -H "$J" -d '{"body":"Namaste"}')"
+expect "premium member starts a chat" '"fromMe":true' "$(as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"Namaste Anjali ji"}')"
+expect "phone numbers blocked in chat" "can’t be shared in chat" "$(as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"call 98765 43210"}')"
+expect "receiver sees unread count" '"unreadMessages":1' "$(as anjali "$API/auth/me")"
+expect "receiver sees the message" "Namaste Anjali ji" "$(as anjali "$API/chats/$ROHAN_CODE")"
+expect "opening the thread marks it read" '"unreadMessages":0' "$(as anjali "$API/auth/me")"
+expect "free member can reply" '"fromMe":true' "$(as anjali -X POST "$API/chats/$ROHAN_CODE" -H "$J" -d '{"body":"Namaste Rohan ji"}')"
+expect "not connected → no chat" "accepted an interest" "$(as sneha "$API/chats/$ROHAN_CODE")"
+
 echo
 echo "All $PASS checks passed."

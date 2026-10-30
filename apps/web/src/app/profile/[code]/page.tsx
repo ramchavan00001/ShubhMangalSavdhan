@@ -123,7 +123,17 @@ export default function ProfilePage() {
 
   let interestBlock: ReactNode;
   if (r.isSelf) interestBlock = <Link href="/me" className="btn-primary">Edit my profile</Link>;
-  else if (r.accepted) interestBlock = <p className="flex items-center gap-2 font-bold text-success"><Heart size={20} /> You are connected</p>;
+  else if (r.accepted)
+    interestBlock = (
+      <div className="flex flex-col gap-2">
+        <p className="flex items-center gap-2 font-bold text-success">
+          <Heart size={20} /> You are connected
+        </p>
+        <Link href={`/chat/${p.code}`} className="btn-primary">
+          Chat with {p.firstName}
+        </Link>
+      </div>
+    );
   else if (r.receivedInterest?.status === 'PENDING')
     interestBlock = (
       <div className="flex flex-col gap-2">
