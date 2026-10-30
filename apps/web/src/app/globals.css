@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-ivory font-sans text-ink antialiased;
+  }
+  a {
+    @apply text-gold-dark;
+  }
+  a:hover {
+    @apply text-maroon;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-gold;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-page px-4 sm:px-6;
+  }
+  .eyebrow {
+    @apply text-[13px] font-bold uppercase tracking-[3px] text-gold-dark;
+  }
+  .heading {
+    @apply font-serif font-semibold text-maroon;
+  }
+
+  /* Buttons — every one is at least 44px tall for touch. */
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[2px] px-5 py-2.5 text-[15px] font-bold no-underline transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-maroon text-ivory hover:bg-maroon-deep hover:text-ivory;
+  }
+  .btn-gold {
+    @apply btn bg-gold text-maroon-deep hover:bg-[#B8913C] hover:text-maroon-deep;
+  }
+  .btn-outline {
+    @apply btn border border-maroon bg-transparent text-maroon hover:bg-maroon hover:text-ivory;
+  }
+  .btn-outline-gold {
+    @apply btn border border-gold bg-transparent text-gold-light hover:bg-gold hover:text-maroon-deep;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-soft hover:bg-sand hover:text-maroon;
+  }
+
+  .card {
+    @apply border border-sand-line bg-ivory-card;
+  }
+  /* The invitation-card double gold border. */
+  .frame-double {
+    @apply border border-gold;
+    outline: 1px solid #c9a24b;
+    outline-offset: 6px;
+  }
+
+  .label {
+    @apply flex flex-col gap-1.5 text-[13px] font-bold text-ink-muted;
+  }
+  .input {
+    @apply min-h-[46px] w-full rounded-[2px] border border-sand-input bg-white px-3 py-2.5 text-[15px] font-normal text-ink placeholder:text-[#9A8A80] focus:border-maroon focus:outline-none;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold;
+  }
+}

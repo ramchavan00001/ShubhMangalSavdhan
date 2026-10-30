@@ -1,0 +1,62 @@
+import { resolve } from 'node:path';
+
+function required(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing required environment variable ${name}`);
+  return v;
+}
+
+function oneOf<T extends string>(name: string, allowed: readonly T[], fallback: T): T {
+  const v = (process.env[name] ?? fallback) as T;
+  if (!allowed.includes(v)) throw new Error(`${name} must be one of ${allowed.join(', ')}`);
+  return v;
+}
+
+export function loadConfig() {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const isProd = nodeEnv === 'production';
+  const jwtSecret = required('JWT_SECRET');
+  if (isProd && (jwtSecret === 'change-me' || jwtSecret.length < 32)) {
+    throw new Error('JWT_SECRET must be a long random value in production');
+  }
+
+  const otpProvider = oneOf('OTP_PROVIDER', ['console', 'msg91'] as const, 'console');
+  const paymentsMode = oneOf('PAYMENTS_MODE', ['mock', 'razorpay'] as const, 'mock');
+  if (isProd && otpProvider === 'console') throw new Error('OTP_PROVIDER=console is not allowed in production');
+  if (isProd && paymentsMode === 'mock') throw new Error('PAYMENTS_MODE=mock is not allowed in production');
+
+  return {
+    nodeEnv,
+    isProd,
+    port: Number(process.env.PORT ?? 4000),
+    webUrl: process.env.WEB_URL ?? 'http://localhost:3000',
+    jwtSecret,
+    adminPhones: (process.env.ADMIN_PHONES ?? '')
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean),
+    otp: {
+      provider: otpProvider,
+      msg91AuthKey: process.env.MSG91_AUTH_KEY ?? '',
+      msg91TemplateId: process.env.MSG91_OTP_TEMPLATE_ID ?? '',
+    },
+    payments: {
+      mode: paymentsMode,
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID ?? '',
+      razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+      razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+    },
+    business: {
+      name: process.env.BUSINESS_NAME ?? 'Shubh Mangal Savdhan',
+      gstin: process.env.BUSINESS_GSTIN ?? '[YOUR GSTIN]',
+      address: process.env.BUSINESS_ADDRESS ?? '[YOUR REGISTERED ADDRESS]',
+      state: process.env.BUSINESS_STATE ?? 'Maharashtra',
+      // Confirm the correct SAC code for your service with your CA.
+      sac: process.env.BUSINESS_SAC ?? '[SAC CODE]',
+    },
+    uploadDir: resolve(process.env.UPLOAD_DIR ?? 'uploads'),
+  };
+}
+
+export type AppConfig = ReturnType<typeof loadConfig>;
+export const APP_CONFIG = Symbol('APP_CONFIG');

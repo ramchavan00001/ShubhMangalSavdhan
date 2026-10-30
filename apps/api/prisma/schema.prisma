@@ -1,0 +1,443 @@
+// Shubh Mangal Savdhan — database schema (Phase 1)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Accounts ───────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  phone        String     @unique // E.164 without "+", e.g. 919876543210
+  email        String?    @unique
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  // Bumped to invalidate every issued session ("log out of all devices").
+  tokenVersion Int        @default(0)
+  lastActiveAt DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  profile       Profile?
+  subscriptions Subscription[]
+  payments      Payment[]
+  notifications Notification[]
+}
+
+model OtpCode {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+}
+
+// ─────────────────────────────── Profiles ───────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum CreatedFor {
+  SELF
+  SON
+  DAUGHTER
+  BROTHER
+  SISTER
+  RELATIVE
+  FRIEND
+}
+
+enum MaritalStatus {
+  NEVER_MARRIED
+  DIVORCED
+  WIDOWED
+  AWAITING_DIVORCE
+  ANNULLED
+}
+
+enum Diet {
+  VEG
+  NON_VEG
+  EGGETARIAN
+  JAIN
+  VEGAN
+}
+
+enum Habit {
+  NO
+  OCCASIONALLY
+  YES
+}
+
+enum FamilyType {
+  JOINT
+  NUCLEAR
+}
+
+enum FamilyValues {
+  TRADITIONAL
+  MODERATE
+  LIBERAL
+}
+
+enum Manglik {
+  NO
+  YES
+  ANSHIK
+  DONT_KNOW
+}
+
+enum ProfileStatus {
+  DRAFT // wizard not finished
+  PENDING // waiting for admin review
+  APPROVED
+  REJECTED
+}
+
+enum PhotoVisibility {
+  ALL // every logged-in member
+  PREMIUM // premium members only
+  ACCEPTED // only members whose interest I accepted / who accepted mine
+}
+
+enum ContactVisibility {
+  ALLOW_UNLOCK // any member may unlock with a weekly credit
+  AFTER_ACCEPT // only after an interest between us is accepted
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  // Human-friendly sequence; the public profile code is "SMS" + (1000000 + seq).
+  seq    Int    @unique @default(autoincrement())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdFor CreatedFor @default(SELF)
+
+  // Step 1 — basic
+  firstName     String?
+  lastName      String?
+  gender        Gender?
+  dateOfBirth   DateTime?      @db.Date
+  heightCm      Int?
+  maritalStatus MaritalStatus?
+  religion      String?
+  community     String?
+  subCaste      String?
+  motherTongue  String?
+  manglik       Manglik?
+
+  // Step 2 — location
+  country     String? @default("India")
+  state       String?
+  city        String?
+  citizenship String? @default("India")
+
+  // Step 3 — education & career
+  education    String?
+  college      String?
+  profession   String?
+  company      String?
+  annualIncome String? // income band value from master data
+
+  // Step 4 — family
+  fatherOccupation String?
+  motherOccupation String?
+  brothers         Int?
+  sisters          Int?
+  familyType       FamilyType?
+  familyValues     FamilyValues?
+  nativePlace      String?
+
+  // Step 5 — lifestyle
+  diet     Diet?
+  smoking  Habit?
+  drinking Habit?
+
+  // Step 6 — about
+  aboutMe String? @db.Text
+
+  onboardingStep  Int           @default(1)
+  status          ProfileStatus @default(DRAFT)
+  rejectionReason String?
+  approvedAt      DateTime?
+
+  // Privacy
+  hidden            Boolean           @default(false)
+  photoVisibility   PhotoVisibility   @default(ALL)
+  contactVisibility ContactVisibility @default(ALLOW_UNLOCK)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos     Photo[]
+  preference PartnerPreference?
+
+  sentInterests     Interest[]      @relation("InterestSender")
+  receivedInterests Interest[]      @relation("InterestReceiver")
+  marksMade         ProfileMark[]   @relation("MarkOwner")
+  marksReceived     ProfileMark[]   @relation("MarkTarget")
+  reportsMade       Report[]        @relation("ReportReporter")
+  reportsReceived   Report[]        @relation("ReportTarget")
+  viewsMade         ProfileView[]   @relation("ViewViewer")
+  viewsReceived     ProfileView[]   @relation("ViewViewed")
+  unlocksMade       ContactUnlock[] @relation("UnlockOwner")
+  unlocksReceived   ContactUnlock[] @relation("UnlockTarget")
+
+  @@index([status, hidden, gender])
+  @@index([city])
+}
+
+enum PhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Photo {
+  id        String      @id @default(cuid())
+  profileId String
+  profile   Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  fileKey   String // storage key (local path in dev, S3 key in production)
+  mimeType  String
+  isMain    Boolean     @default(false)
+  status    PhotoStatus @default(PENDING)
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  @@index([profileId])
+}
+
+// Empty arrays and null bounds mean "any".
+model PartnerPreference {
+  id        String  @id @default(cuid())
+  profileId String  @unique
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  ageMin          Int?
+  ageMax          Int?
+  heightMinCm     Int?
+  heightMaxCm     Int?
+  maritalStatuses MaritalStatus[]
+  religions       String[]
+  communities     String[]
+  motherTongues   String[]
+  states          String[]
+  cities          String[]
+  educations      String[]
+  professions     String[]
+  diets           Diet[]
+
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────── Interactions ───────────────────────────────
+
+enum InterestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+model Interest {
+  id          String         @id @default(cuid())
+  senderId    String
+  sender      Profile        @relation("InterestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    Profile        @relation("InterestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  status      InterestStatus @default(PENDING)
+  message     String?
+  createdAt   DateTime       @default(now())
+  respondedAt DateTime?
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId, createdAt])
+}
+
+enum MarkType {
+  SHORTLIST
+  IGNORE
+  BLOCK
+}
+
+model ProfileMark {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     Profile  @relation("MarkOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  targetId  String
+  target    Profile  @relation("MarkTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  type      MarkType
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, targetId, type])
+  @@index([targetId, type])
+}
+
+enum ReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   Profile      @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetId   String
+  target     Profile      @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  adminNote  String?
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model ProfileView {
+  id       String   @id @default(cuid())
+  viewerId String
+  viewer   Profile  @relation("ViewViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewedId String
+  viewed   Profile  @relation("ViewViewed", fields: [viewedId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([viewerId, viewedId])
+  @@index([viewedId, viewedAt])
+}
+
+model ContactUnlock {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      Profile  @relation("UnlockOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  targetId   String
+  target     Profile  @relation("UnlockTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  unlockedAt DateTime @default(now())
+
+  @@unique([ownerId, targetId])
+  @@index([ownerId, unlockedAt])
+}
+
+// ─────────────────────────────── Billing ───────────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model Subscription {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    SubscriptionStatus @default(ACTIVE)
+  // The contact-unlock week is counted from startsAt.
+  startsAt  DateTime
+  endsAt    DateTime
+  paymentId String?            @unique
+  payment   Payment?           @relation(fields: [paymentId], references: [id])
+  note      String? // e.g. "Extended by admin"
+  createdAt DateTime           @default(now())
+
+  @@index([userId, endsAt])
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String // "razorpay" or "mock"
+  providerOrderId   String        @unique
+  providerPaymentId String?       @unique
+  basePaise         Int
+  gstPaise          Int
+  totalPaise        Int
+  status            PaymentStatus @default(CREATED)
+  invoiceNumber     String?       @unique
+  // Snapshot of the billing state, used to split GST into CGST+SGST or IGST.
+  billingState      String?
+  createdAt         DateTime      @default(now())
+  paidAt            DateTime?
+
+  subscription Subscription?
+
+  @@index([userId, createdAt])
+}
+
+model InvoiceCounter {
+  financialYear String @id // e.g. "2026-27"
+  lastNumber    Int    @default(0)
+}
+
+// ─────────────────────────────── Misc ───────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum MasterType {
+  RELIGION
+  COMMUNITY
+  MOTHER_TONGUE
+  EDUCATION
+  PROFESSION
+  INCOME
+  STATE
+}
+
+// Dropdown lists managed from the admin panel.
+model MasterItem {
+  id        String     @id @default(cuid())
+  type      MasterType
+  value     String
+  // For COMMUNITY: the religion it belongs to.
+  parent    String?
+  sortOrder Int        @default(0)
+  active    Boolean    @default(true)
+
+  @@unique([type, value])
+  @@index([type, active, sortOrder])
+}
