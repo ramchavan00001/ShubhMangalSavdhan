@@ -1,29 +1,11 @@
-import {
-  BadRequestException,
-  Body,
-  ConflictException,
-  Controller,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpException,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser } from '../common/auth';
-import { profileCode } from '../domain/matching';
-import { PLANS } from '../domain/plans';
-import { MembershipService } from '../membership/membership.service';
-import { NotificationsService } from '../notifications/notifications';
 import { PrismaService } from '../prisma/prisma.service';
-import { containsContactDetails } from '../profiles/profiles.service';
 import { acceptedConnections, approvedPhotos, toCard } from '../profiles/presenter';
 import { ProfilesService } from '../profiles/profiles.service';
+import { InterestsService } from './interests.service';
 
 class SendInterestDto {
   @IsString() profileId: string;
@@ -39,89 +21,24 @@ export class InterestsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly profiles: ProfilesService,
-    private readonly membership: MembershipService,
-    private readonly notifications: NotificationsService,
+    private readonly interests: InterestsService,
   ) {}
 
   @Post()
-  async send(@CurrentUser() user: User, @Body() dto: SendInterestDto) {
-    const me = await this.profiles.approvedProfile(user.id);
-    const target = await this.prisma.profile.findFirst({
-      where: { AND: [{ id: dto.profileId }, this.profiles.discoverableWhere(me)] },
-    });
-    if (!target) throw new NotFoundException('Profile not found');
-    if (dto.message && containsContactDetails(dto.message)) {
-      throw new BadRequestException('Please do not share phone numbers or emails in the message.');
-    }
-
-    // They already sent me one: sending back means yes.
-    const theirs = await this.prisma.interest.findUnique({
-      where: { senderId_receiverId: { senderId: target.id, receiverId: me.id } },
-    });
-    if (theirs?.status === 'PENDING') return this.respond(user, theirs.id, 'ACCEPTED');
-    if (theirs?.status === 'ACCEPTED') throw new ConflictException('You are already connected');
-
-    const existing = await this.prisma.interest.findUnique({
-      where: { senderId_receiverId: { senderId: me.id, receiverId: target.id } },
-    });
-    if (existing && existing.status !== 'WITHDRAWN') throw new ConflictException('You have already sent an interest');
-
-    const tier = await this.membership.tier(user.id);
-    const limit = PLANS[tier].dailyInterestLimit;
-    if (limit != null && (await this.membership.interestsSentToday(me.id)) >= limit) {
-      throw new HttpException(
-        `Free members can send ${limit} interests a day. Upgrade to Premium for unlimited interests.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    const interest = existing
-      ? await this.prisma.interest.update({
-          where: { id: existing.id },
-          data: { status: 'PENDING', message: dto.message, createdAt: new Date(), respondedAt: null },
-        })
-      : await this.prisma.interest.create({ data: { senderId: me.id, receiverId: target.id, message: dto.message } });
-
-    await this.notifications.notify({
-      userId: target.userId,
-      type: 'INTEREST_RECEIVED',
-      title: 'New interest received',
-      body: `${me.firstName ?? 'A member'} (${profileCode(me.seq)}) is interested in your profile.`,
-      link: `/inbox?box=received`,
-    });
-    return { id: interest.id, status: interest.status };
-  }
-
-  private async respond(user: User, id: string, status: 'ACCEPTED' | 'DECLINED') {
-    const me = await this.profiles.approvedProfile(user.id);
-    const interest = await this.prisma.interest.findUnique({ where: { id }, include: { sender: true } });
-    if (!interest || interest.receiverId !== me.id) throw new NotFoundException();
-    if (interest.status !== 'PENDING' && !(interest.status === 'DECLINED' && status === 'ACCEPTED')) {
-      throw new ConflictException('This interest has already been answered');
-    }
-    const updated = await this.prisma.interest.update({ where: { id }, data: { status, respondedAt: new Date() } });
-    if (status === 'ACCEPTED') {
-      await this.notifications.notify({
-        userId: interest.sender.userId,
-        type: 'INTEREST_ACCEPTED',
-        title: 'Interest accepted',
-        body: `${me.firstName ?? 'A member'} (${profileCode(me.seq)}) accepted your interest.`,
-        link: `/profile/${profileCode(me.seq)}`,
-      });
-    }
-    return { id: updated.id, status: updated.status };
+  send(@CurrentUser() user: User, @Body() dto: SendInterestDto) {
+    return this.interests.send(user.id, dto.profileId, dto.message);
   }
 
   @Post(':id/accept')
   @HttpCode(200)
   accept(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.respond(user, id, 'ACCEPTED');
+    return this.interests.respond(user.id, id, 'ACCEPTED');
   }
 
   @Post(':id/decline')
   @HttpCode(200)
   decline(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.respond(user, id, 'DECLINED');
+    return this.interests.respond(user.id, id, 'DECLINED');
   }
 
   @Post(':id/withdraw')

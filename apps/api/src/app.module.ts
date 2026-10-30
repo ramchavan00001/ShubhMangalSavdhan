@@ -15,6 +15,7 @@ import { MembershipModule } from './membership/membership.service';
 import { NotificationsModule } from './notifications/notifications';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProfilesModule } from './profiles/profiles.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.controller';
 
 @Controller('health')
 class HealthController {
@@ -42,6 +43,7 @@ class HealthController {
     InteractionsModule,
     BillingModule,
     ChatModule,
+    WhatsAppModule,
   ],
   controllers: [HealthController, MastersController, AdminController],
   providers: [

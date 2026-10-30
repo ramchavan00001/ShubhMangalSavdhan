@@ -7,6 +7,7 @@ import { ageOn } from '../domain/age';
 import { profileCode } from '../domain/matching';
 import { NotificationsService } from '../notifications/notifications';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 
 const PAGE = 25;
 
@@ -57,6 +58,7 @@ export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   @Get('dashboard')
@@ -147,6 +149,8 @@ export class AdminController {
       body: 'Your profile has been approved. Start exploring your matches.',
       link: '/matches',
     });
+    // First approval only: queue the new member for opted-in matches' WhatsApp digests.
+    if (!p.approvedAt) await this.whatsapp.enqueueNewProfile(id);
     return { ok: true };
   }
 

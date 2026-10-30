@@ -22,6 +22,7 @@ export function loadConfig() {
 
   const otpProvider = oneOf('OTP_PROVIDER', ['console', 'msg91'] as const, 'console');
   const paymentsMode = oneOf('PAYMENTS_MODE', ['mock', 'razorpay'] as const, 'mock');
+  const whatsappProvider = oneOf('WHATSAPP_PROVIDER', ['console', 'meta'] as const, 'console');
   if (isProd && otpProvider === 'console') throw new Error('OTP_PROVIDER=console is not allowed in production');
   if (isProd && paymentsMode === 'mock') throw new Error('PAYMENTS_MODE=mock is not allowed in production');
 
@@ -53,6 +54,16 @@ export function loadConfig() {
       state: process.env.BUSINESS_STATE ?? 'Maharashtra',
       // Confirm the correct SAC code for your service with your CA.
       sac: process.env.BUSINESS_SAC ?? '[SAC CODE]',
+    },
+    whatsapp: {
+      provider: whatsappProvider,
+      token: process.env.WHATSAPP_TOKEN ?? '',
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',
+      appSecret: process.env.WHATSAPP_APP_SECRET ?? '',
+      verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? '',
+      digestTemplate: process.env.WHATSAPP_TEMPLATE_DIGEST ?? 'new_matches',
+      alertTemplate: process.env.WHATSAPP_TEMPLATE_INTEREST ?? 'interest_received',
+      templateLanguage: process.env.WHATSAPP_TEMPLATE_LANG ?? 'en',
     },
     uploadDir: resolve(process.env.UPLOAD_DIR ?? 'uploads'),
   };

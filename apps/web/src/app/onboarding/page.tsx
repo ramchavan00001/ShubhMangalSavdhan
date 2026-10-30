@@ -7,6 +7,7 @@ import { PhotoManager } from '@/components/PhotoManager';
 import { PreferencesForm } from '@/components/PreferencesForm';
 import { PROFILE_STEPS, sectionBody, STEP_FIELDS, toValues, Values } from '@/components/ProfileFields';
 import { Alert, Loading } from '@/components/ui';
+import { WhatsAppConsent } from '@/components/WhatsAppConsent';
 import { api, fetcher } from '@/lib/api';
 import { useRequireMe } from '@/lib/hooks';
 import type { OwnProfile } from '@/lib/types';
@@ -126,6 +127,11 @@ export default function OnboardingPage() {
         ) : (
           <div className="flex flex-col gap-6">
             <PreferencesForm initial={profile.preference} submitLabel="Save preferences" onSaved={() => mutate()} />
+            <hr className="border-sand-line" />
+            <div className="flex flex-col gap-3">
+              <h2 className="heading text-2xl">Matches on WhatsApp (optional)</h2>
+              <WhatsAppConsent source="ONBOARDING" />
+            </div>
             <hr className="border-sand-line" />
             {error && <Alert tone="danger">{error}</Alert>}
             <div className="flex flex-wrap items-center justify-between gap-3">

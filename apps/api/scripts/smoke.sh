@@ -118,5 +118,25 @@ expect "opening the thread marks it read" '"unreadMessages":0' "$(as anjali "$AP
 expect "free member can reply" '"fromMe":true' "$(as anjali -X POST "$API/chats/$ROHAN_CODE" -H "$J" -d '{"body":"Namaste Rohan ji"}')"
 expect "not connected → no chat" "accepted an interest" "$(as sneha "$API/chats/$ROHAN_CODE")"
 
+echo "WhatsApp (test mode)"
+expect "consent starts off" '"digest":false,"shareProfile":false,"alerts":false' "$(as sneha "$API/whatsapp/preferences")"
+as sneha -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"digest":true,"alerts":true}' >/dev/null
+expect "joining digests later queues you for matches" '"shareProfile":true' "$(as rohan -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"shareProfile":true}')"
+expect "daily digest runs" '"sent":1' "$(as admin -X POST "$API/admin/whatsapp/run-digest")"
+DIGEST=$(as admin "$API/admin/whatsapp/messages?phone=9000000002" | json "[m['body'] for m in d['items'] if m['kind']=='DIGEST'][0]")
+expect "digest lists the match" "1. Rohan, " "$DIGEST"
+if [[ "$DIGEST" == *"Pawar"* || "$DIGEST" == *"9876500001"* ]]; then fail "digest hides surname and phone" "$DIGEST"; else ok "digest hides surname and phone"; fi
+sim() { as admin -X POST "$API/admin/whatsapp/simulate" -H "$J" -d "{\"phone\":\"$1\",\"text\":\"$2\"}"; }
+expect "\"1 pasand hai\" sends interest" "Rohan: interest sent" "$(sim 9000000002 '1 pasand hai')"
+expect "unknown reply shows the menu" "didn’t understand" "$(sim 9000000002 'what is his height?')"
+login 9000000004 meera
+as meera -X PUT "$API/whatsapp/preferences" -H "$J" -d '{"alerts":true}' >/dev/null
+as rohan -X POST "$API/interests" -H "$J" -d "{\"profileId\":\"$MEERA\"}" >/dev/null
+expect "interest alert is sent" "is interested in you" "$(as admin "$API/admin/whatsapp/messages?phone=9000000004")"
+expect "\"Accept\" accepts the alerted interest" "connected with Rohan" "$(sim 9000000004 'Accept')"
+expect "STOP unsubscribes" "won’t get WhatsApp messages" "$(sim 9000000002 'STOP')"
+expect "STOP turns consent off" '"digest":false' "$(as sneha "$API/whatsapp/preferences")"
+expect "unregistered numbers are told to sign up" "isn't registered" "$(sim 9811100000 'hi')"
+
 echo
 echo "All $PASS checks passed."

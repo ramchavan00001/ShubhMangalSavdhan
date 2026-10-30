@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { Alert, Loading, PageTitle } from '@/components/ui';
+import { WhatsAppConsent } from '@/components/WhatsAppConsent';
 import { api, fetcher } from '@/lib/api';
 import { useRequireMe } from '@/lib/hooks';
 import { CONTACT_VISIBILITY, PHOTO_VISIBILITY } from '@/lib/labels';
@@ -76,6 +77,11 @@ export default function SettingsPage() {
             Save privacy settings
           </button>
         </div>
+      </section>
+
+      <section className="card flex flex-col gap-4 p-6">
+        <h2 className="heading text-2xl">WhatsApp</h2>
+        <WhatsAppConsent />
       </section>
 
       <section className="card flex flex-col gap-3 p-6">
