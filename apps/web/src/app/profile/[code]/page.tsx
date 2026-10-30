@@ -240,8 +240,9 @@ export default function ProfilePage() {
         <div className="flex min-w-0 flex-[999_1_480px] flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="eyebrow">{p.code}</p>
-            <h1 className="heading text-4xl sm:text-5xl">
+            <h1 className="heading flex flex-wrap items-center gap-3 text-4xl sm:text-5xl">
               {p.firstName} {p.lastInitial}
+              {p.verified && <span className="badge bg-success-bg font-sans text-sm text-success">✓ Verified</span>}
             </h1>
             <p className="text-lg text-ink-muted">
               {[p.age && `${p.age} yrs`, feetInches(p.heightCm), p.city, p.state].filter(Boolean).join(' · ')}

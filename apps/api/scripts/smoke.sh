@@ -138,5 +138,21 @@ expect "STOP unsubscribes" "won’t get WhatsApp messages" "$(sim 9000000002 'ST
 expect "STOP turns consent off" '"digest":false' "$(as sneha "$API/whatsapp/preferences")"
 expect "unregistered numbers are told to sign up" "isn't registered" "$(sim 9811100000 'hi')"
 
+echo "Verification"
+expect "starts unverified" '"verified":false' "$(as rohan "$API/verification")"
+expect "bad ID number rejected" "doesn’t look like a valid PAN" "$(as rohan -X POST "$API/verification/id" -H "$J" -d '{"docType":"PAN","number":"ABCD123","nameOnDoc":"Rohan Pawar"}')"
+expect "ID with matching name is approved (test mode)" '"status":"APPROVED","docType":"PAN","docLast4":"234F"' "$(as rohan -X POST "$API/verification/id" -H "$J" -d '{"docType":"PAN","number":"abcde 1234 f","nameOnDoc":"ROHAN SURESH PAWAR"}')"
+expect "verified name can't be changed" "verified against your ID" "$(as rohan -X PATCH "$API/profiles/me" -H "$J" -d '{"firstName":"Rahul"}')"
+expect "ID with a different name goes to review" '"status":"PENDING"' "$(as sneha -X POST "$API/verification/id" -H "$J" -d '{"docType":"VOTER_ID","number":"ABC1234567","nameOnDoc":"Sneha Joshi"}')"
+expect "selfie needs a profile photo" "Add a profile photo first" "$(as sneha -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+expect "selfie goes to a moderator" '"status":"PENDING"' "$(as rohan -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+expect "one review at a time" "still being reviewed" "$(as rohan -F "file=@$TMP/p.jpg" "$API/verification/selfie")"
+VID=$(as admin "$API/admin/verifications" | json "[v['id'] for v in d if v['type']=='SELFIE' and v['profile']['name']=='Rohan Pawar'][0]")
+expect "moderator can view the selfie" "smoke" "$(as admin "$API/admin/verifications/$VID/selfie")"
+if [[ "$(as sneha -o /dev/null -w '%{http_code}' "$API/admin/verifications/$VID/selfie")" == "403" ]]; then ok "members can't view selfies"; else fail "members can't view selfies" "not 403"; fi
+as admin -X POST "$API/admin/verifications/$VID/approve" >/dev/null
+expect "approved member gets the badge" '"verified":true' "$(as rohan "$API/verification")"
+expect "verified-only search" "Rohan" "$(as sneha "$API/search?verifiedOnly=true" | json "[i['firstName'] for i in d['items'] if i['verified']]")"
+
 echo
 echo "All $PASS checks passed."

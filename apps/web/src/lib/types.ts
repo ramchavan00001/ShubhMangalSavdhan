@@ -41,6 +41,7 @@ export interface ProfileCard {
   photoLocked: string | null;
   matchPercent: number;
   isNew: boolean;
+  verified: boolean;
 }
 
 export interface ProfileDetail extends ProfileCard {

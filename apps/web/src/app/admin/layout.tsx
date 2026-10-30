@@ -9,6 +9,7 @@ import { useRequireMe } from '@/lib/hooks';
 const NAV = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/approvals', label: 'Approvals' },
+  { href: '/admin/verifications', label: 'Verifications' },
   { href: '/admin/users', label: 'Members' },
   { href: '/admin/reports', label: 'Reports' },
   { href: '/admin/payments', label: 'Payments' },

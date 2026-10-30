@@ -120,7 +120,7 @@ export function Header() {
       {open && (
         <nav aria-label="Mobile" className="border-t border-maroon-soft lg:hidden">
           <ul className="container-page flex flex-col py-2">
-            {[...links, ...(me ? [{ href: '/me', label: 'My profile' }, { href: '/settings', label: 'Settings' }] : [{ href: '/login', label: 'Log in' }])].map((l) => (
+            {[...links, ...(me ? [{ href: '/me', label: 'My profile' }, { href: '/verify', label: 'Get verified' }, { href: '/settings', label: 'Settings' }] : [{ href: '/login', label: 'Log in' }])].map((l) => (
               <li key={l.href}>
                 <Link href={l.href} onClick={() => setOpen(false)} className="block py-3 font-semibold text-gold-light no-underline">
                   {l.label}

@@ -92,6 +92,10 @@ export class ProfilesService {
     if (locked && dto.dateOfBirth && current.dateOfBirth && new Date(dto.dateOfBirth).getTime() !== current.dateOfBirth.getTime()) {
       throw new BadRequestException('Date of birth cannot be changed after your profile is submitted. Please contact support.');
     }
+    const renamed = (dto.firstName && dto.firstName.trim() !== current.firstName) || (dto.lastName && dto.lastName.trim() !== current.lastName);
+    if (current.idVerifiedAt && renamed) {
+      throw new BadRequestException('Your name is verified against your ID and can’t be changed here. Please contact support.');
+    }
     const gender = dto.gender ?? current.gender;
     const dob = dto.dateOfBirth ? new Date(dto.dateOfBirth) : current.dateOfBirth;
     if (gender && dob) {

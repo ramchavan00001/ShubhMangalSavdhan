@@ -21,6 +21,7 @@ interface Filters {
   heightMax: string;
   city: string;
   withPhoto: boolean;
+  verifiedOnly: boolean;
   sort: string;
   lists: Record<ListKey, string[]>;
 }
@@ -34,6 +35,7 @@ function fromParams(p: URLSearchParams): Filters {
     heightMax: p.get('heightMax') ?? '',
     city: p.get('city') ?? '',
     withPhoto: p.get('withPhoto') === 'true',
+    verifiedOnly: p.get('verifiedOnly') === 'true',
     sort: p.get('sort') ?? 'newest',
     lists,
   };
@@ -44,6 +46,7 @@ function toParams(f: Filters, page: number) {
   for (const k of ['ageMin', 'ageMax', 'heightMin', 'heightMax'] as const) if (f[k]) q.set(k, f[k]);
   if (f.city.trim()) q.set('city', f.city.trim());
   if (f.withPhoto) q.set('withPhoto', 'true');
+  if (f.verifiedOnly) q.set('verifiedOnly', 'true');
   if (f.sort !== 'newest') q.set('sort', f.sort);
   for (const k of LIST_KEYS) if (f.lists[k].length) q.set(k, f.lists[k].join(','));
   if (page > 1) q.set('page', String(page));
@@ -137,6 +140,10 @@ function SearchInner() {
           <label className="flex items-center gap-3 text-sm font-semibold">
             <input type="checkbox" className="h-5 w-5 accent-maroon" checked={f.withPhoto} onChange={(e) => setF((x) => ({ ...x, withPhoto: e.target.checked }))} />
             Only profiles with photos
+          </label>
+          <label className="flex items-center gap-3 text-sm font-semibold">
+            <input type="checkbox" className="h-5 w-5 accent-maroon" checked={f.verifiedOnly} onChange={(e) => setF((x) => ({ ...x, verifiedOnly: e.target.checked }))} />
+            Only verified profiles
           </label>
           <label className="label">
             Sort by

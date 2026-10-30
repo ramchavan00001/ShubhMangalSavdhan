@@ -45,6 +45,7 @@ export function ProfileCard({ profile, children }: { profile: Card; children?: R
               {profile.firstName} {profile.lastInitial}
             </Link>
           </h3>
+          {profile.verified && <span className="badge bg-success-bg text-success">✓ Verified</span>}
           {profile.isNew && <span className="badge bg-gold text-maroon-deep">New</span>}
         </div>
         <p className="text-sm leading-normal text-ink-muted">

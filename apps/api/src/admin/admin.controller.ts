@@ -91,6 +91,7 @@ export class AdminController {
       activeLast7Days: active7d,
       premiumMembers: premium.length,
       pendingProfiles: pending,
+      pendingVerifications: await this.prisma.verification.count({ where: { status: 'PENDING' } }),
       pendingPhotos,
       openReports,
       revenueThisMonthPaise: revenueMonth._sum.totalPaise ?? 0,
