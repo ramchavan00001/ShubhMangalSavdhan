@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
+import { EmailSettings } from '@/components/EmailSettings';
 import { Alert, Loading, PageTitle } from '@/components/ui';
 import { WhatsAppConsent } from '@/components/WhatsAppConsent';
 import { api, fetcher } from '@/lib/api';
@@ -77,6 +78,11 @@ export default function SettingsPage() {
             Save privacy settings
           </button>
         </div>
+      </section>
+
+      <section className="card flex flex-col gap-4 p-6">
+        <h2 className="heading text-2xl">Email</h2>
+        <EmailSettings />
       </section>
 
       <section className="card flex flex-col gap-4 p-6">

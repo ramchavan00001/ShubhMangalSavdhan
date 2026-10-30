@@ -24,6 +24,7 @@ export function loadConfig() {
   const paymentsMode = oneOf('PAYMENTS_MODE', ['mock', 'razorpay'] as const, 'mock');
   const whatsappProvider = oneOf('WHATSAPP_PROVIDER', ['console', 'meta'] as const, 'console');
   const kycProvider = oneOf('KYC_PROVIDER', ['mock', 'manual'] as const, 'mock');
+  const emailProvider = oneOf('EMAIL_PROVIDER', ['console', 'smtp'] as const, 'console');
   if (isProd && kycProvider === 'mock') throw new Error('KYC_PROVIDER=mock is not allowed in production (use manual)');
   if (isProd && otpProvider === 'console') throw new Error('OTP_PROVIDER=console is not allowed in production');
   if (isProd && paymentsMode === 'mock') throw new Error('PAYMENTS_MODE=mock is not allowed in production');
@@ -66,6 +67,14 @@ export function loadConfig() {
       digestTemplate: process.env.WHATSAPP_TEMPLATE_DIGEST ?? 'new_matches',
       alertTemplate: process.env.WHATSAPP_TEMPLATE_INTEREST ?? 'interest_received',
       templateLanguage: process.env.WHATSAPP_TEMPLATE_LANG ?? 'en',
+    },
+    email: {
+      provider: emailProvider,
+      host: process.env.SMTP_HOST ?? '',
+      port: Number(process.env.SMTP_PORT ?? 587),
+      user: process.env.SMTP_USER ?? '',
+      pass: process.env.SMTP_PASS ?? '',
+      from: process.env.EMAIL_FROM ?? 'Shubh Mangal Savdhan <no-reply@example.com>',
     },
     /** "mock": IDs auto-approve when the name matches (development). "manual": moderators review every ID. */
     kycProvider,

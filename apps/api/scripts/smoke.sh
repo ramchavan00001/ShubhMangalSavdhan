@@ -154,5 +154,16 @@ as admin -X POST "$API/admin/verifications/$VID/approve" >/dev/null
 expect "approved member gets the badge" '"verified":true' "$(as rohan "$API/verification")"
 expect "verified-only search" "Rohan" "$(as sneha "$API/search?verifiedOnly=true" | json "[i['firstName'] for i in d['items'] if i['verified']]")"
 
+echo "Email notifications"
+as anjali -X POST "$API/account/email" -H "$J" -d '{"email":"Anjali@Example.com"}' >/dev/null
+sleep 0.3
+ECODE=$(grep -o "verification code is [0-9]*" "$API_LOG" | tail -1 | awk '{print $NF}')
+expect "wrong code rejected" "Incorrect code" "$(as anjali -X POST "$API/account/email/verify" -H "$J" -d '{"code":"000000"}')"
+expect "email confirmed with the code" '"email":"anjali@example.com"' "$(as anjali -X POST "$API/account/email/verify" -H "$J" -d "{\"code\":\"$ECODE\"}")"
+as rohan -X POST "$API/chats/$ANJALI_CODE" -H "$J" -d '{"body":"Shall our families talk this weekend?"}' >/dev/null
+sleep 0.3
+if grep -q "→ anjali@example.com | New message" "$API_LOG"; then ok "notification emailed"; else fail "notification emailed" "no email in log"; fi
+expect "same email can't be used twice" "already used by another account" "$(as sneha -X POST "$API/account/email" -H "$J" -d '{"email":"anjali@example.com"}')"
+
 echo
 echo "All $PASS checks passed."
