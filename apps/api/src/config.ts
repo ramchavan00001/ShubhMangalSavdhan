@@ -12,6 +12,11 @@ function oneOf<T extends string>(name: string, allowed: readonly T[], fallback: 
   return v;
 }
 
+/** Read directly by the @Cron decorators, which are evaluated before config is loaded. */
+export function schedulerModeFromEnv() {
+  return oneOf('SCHEDULER_MODE', ['internal', 'external'] as const, 'internal');
+}
+
 export function loadConfig() {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const isProd = nodeEnv === 'production';
@@ -28,6 +33,14 @@ export function loadConfig() {
   if (isProd && kycProvider === 'mock') throw new Error('KYC_PROVIDER=mock is not allowed in production (use manual)');
   if (isProd && otpProvider === 'console') throw new Error('OTP_PROVIDER=console is not allowed in production');
   if (isProd && paymentsMode === 'mock') throw new Error('PAYMENTS_MODE=mock is not allowed in production');
+
+  const storageDriver = oneOf('STORAGE_DRIVER', ['local', 'gcs'] as const, 'local');
+  const storageBucket = process.env.STORAGE_BUCKET ?? '';
+  if (storageDriver === 'gcs' && !storageBucket) throw new Error('STORAGE_BUCKET is required when STORAGE_DRIVER=gcs');
+  const schedulerMode = schedulerModeFromEnv();
+  if (schedulerMode === 'external' && (!process.env.CRON_AUDIENCE || !process.env.CRON_INVOKER_EMAIL)) {
+    throw new Error('CRON_AUDIENCE and CRON_INVOKER_EMAIL are required when SCHEDULER_MODE=external');
+  }
 
   return {
     nodeEnv,
@@ -83,7 +96,27 @@ export function loadConfig() {
     },
     /** "mock": IDs auto-approve when the name matches (development). "manual": moderators review every ID. */
     kycProvider,
-    uploadDir: resolve(process.env.UPLOAD_DIR ?? 'uploads'),
+    storage: {
+      /** "local": files on disk in UPLOAD_DIR (development). "gcs": a Cloud Storage / Firebase Storage bucket. */
+      driver: storageDriver,
+      uploadDir: resolve(process.env.UPLOAD_DIR ?? 'uploads'),
+      bucket: storageBucket,
+      /** Folder inside the bucket, e.g. "uploads/". */
+      prefix: process.env.STORAGE_PREFIX ?? 'uploads/',
+      /** Only for a local GCS emulator (with STORAGE_EMULATOR_HOST=<emulator>/storage/v1); empty in production. */
+      apiEndpoint: process.env.STORAGE_API_ENDPOINT ?? '',
+    },
+    /**
+     * "internal": daily jobs run inside the API process (development, single server).
+     * "external": Cloud Scheduler calls POST /cron/* instead (Cloud Run, where instances scale to zero or to many).
+     */
+    scheduler: {
+      mode: schedulerMode,
+      /** Audience expected in Cloud Scheduler's OIDC token (normally the API's public URL). */
+      audience: process.env.CRON_AUDIENCE ?? '',
+      /** Service account Cloud Scheduler signs its OIDC tokens as. */
+      invokerEmail: process.env.CRON_INVOKER_EMAIL ?? '',
+    },
   };
 }
 

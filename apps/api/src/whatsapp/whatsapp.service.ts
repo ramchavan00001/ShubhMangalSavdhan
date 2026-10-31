@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Prisma, Profile, User } from '@prisma/client';
-import { APP_CONFIG, AppConfig } from '../config';
+import { APP_CONFIG, AppConfig, schedulerModeFromEnv } from '../config';
 import { ageOn } from '../domain/age';
 import { profileCode } from '../domain/matching';
 import { parseWhatsAppReply, WhatsAppIntent } from '../domain/whatsapp-intent';
@@ -184,7 +184,7 @@ export class WhatsAppService implements OnModuleInit {
   }
 
   /** Daily at 9:00 IST: Premium members get a digest every day, Free members once a week. */
-  @Cron('0 30 3 * * *')
+  @Cron('0 30 3 * * *', { disabled: schedulerModeFromEnv() === 'external' })
   async runDailyDigests(now = new Date()) {
     const recipients = await this.prisma.profile.findMany({
       where: { status: 'APPROVED', user: { status: 'ACTIVE', whatsappDigest: true }, digestItems: { some: { digestId: null } } },

@@ -11,6 +11,7 @@ import { BillingModule } from './billing/billing.module';
 import { ChatModule } from './chat/chat.controller';
 import { AuthGuard, Public } from './common/auth';
 import { CoreModule } from './common/core.module';
+import { CronModule } from './cron/cron.controller';
 import { InteractionsModule } from './interactions/interactions.module';
 import { MastersController } from './masters/masters.controller';
 import { MembershipModule } from './membership/membership.service';
@@ -50,6 +51,7 @@ class HealthController {
     VerificationModule,
     AccountModule,
     AiModule,
+    CronModule,
   ],
   controllers: [HealthController, MastersController, AdminController],
   providers: [

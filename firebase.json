@@ -1,0 +1,12 @@
+{
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "apphosting": [
+    {
+      "backendId": "sms-web",
+      "rootDir": "apps/web",
+      "ignore": ["node_modules", ".git", ".next", ".env*"]
+    }
+  ]
+}

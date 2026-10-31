@@ -1,0 +1,22 @@
+# Firebase App Hosting settings for the website (backend "sms-web", app root directory: apps/web).
+# App Hosting is not offered in asia-south1; the backend is created in asia-southeast1 (Singapore).
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0     # set to 1 to avoid cold starts (≈ US$8–12 a month extra)
+  maxInstances: 3
+  concurrency: 80
+
+env:
+  # The website forwards /api/* to the Cloud Run API. Next.js bakes rewrites in at build time,
+  # so this must be available during BUILD as well as RUNTIME.
+  - variable: API_URL
+    value: https://sms-api-268568048663.asia-south1.run.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_TELEMETRY_DISABLED
+    value: "1"
+    availability:
+      - BUILD
+      - RUNTIME

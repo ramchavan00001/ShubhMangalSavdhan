@@ -1,0 +1,61 @@
+# Builds the API image, applies database migrations, then deploys Cloud Run.
+# From the repository root:
+#   gcloud builds submit --region=asia-south1 --config=deploy/cloudbuild.api.yaml .
+substitutions:
+  _REGION: asia-south1
+  _SERVICE: sms-api
+  _IMAGE: asia-south1-docker.pkg.dev/shubh-mangal-savdhan/sms/api
+  _API_SA: sms-api@shubh-mangal-savdhan.iam.gserviceaccount.com
+  _SQL: shubh-mangal-savdhan:asia-south1:sms-db
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+timeout: 1800s
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, apps/api/Dockerfile, -t, '${_IMAGE}:${BUILD_ID}', -t, '${_IMAGE}:latest', .]
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, --all-tags, '${_IMAGE}']
+
+  # Each step re-reads which secrets exist, so optional ones (MSG91, Razorpay…) can be added later.
+  - id: migrate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        common=(--image='${_IMAGE}:${BUILD_ID}' --region='${_REGION}' --service-account='${_API_SA}'
+          --set-cloudsql-instances='${_SQL}' --set-secrets=DATABASE_URL=sms-database-url:latest
+          --task-timeout=600s --max-retries=0)
+        for job in sms-api-migrate:"npx,prisma,migrate,deploy" sms-api-seed:"npx,tsx,prisma/seed.ts"; do
+          name=$${job%%:*}; cmd=$${job#*:}
+          # The seed job also needs ADMIN_PHONES; it is only run by hand (see README).
+          verb=create; gcloud run jobs describe "$$name" --region='${_REGION}' >/dev/null 2>&1 && verb=update
+          gcloud run jobs "$$verb" "$$name" "$${common[@]}" --command="$${cmd%%,*}" --args="$${cmd#*,}" \
+            --env-vars-file=deploy/api.env.yaml
+        done
+        gcloud run jobs execute sms-api-migrate --region='${_REGION}' --wait
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        secrets=DATABASE_URL=sms-database-url:latest,JWT_SECRET=sms-jwt-secret:latest
+        for pair in MSG91_AUTH_KEY=sms-msg91-auth-key RAZORPAY_KEY_SECRET=sms-razorpay-key-secret \
+                    RAZORPAY_WEBHOOK_SECRET=sms-razorpay-webhook-secret WHATSAPP_TOKEN=sms-whatsapp-token \
+                    WHATSAPP_APP_SECRET=sms-whatsapp-app-secret WHATSAPP_VERIFY_TOKEN=sms-whatsapp-verify-token \
+                    SMTP_PASS=sms-smtp-pass ANTHROPIC_API_KEY=sms-anthropic-api-key; do
+          gcloud secrets describe "$${pair#*=}" >/dev/null 2>&1 && secrets="$$secrets,$$pair:latest"
+        done
+        gcloud run deploy '${_SERVICE}' --image='${_IMAGE}:${BUILD_ID}' --region='${_REGION}' \
+          --service-account='${_API_SA}' --add-cloudsql-instances='${_SQL}' \
+          --allow-unauthenticated --port=8080 --cpu=1 --memory=512Mi \
+          --min-instances=0 --max-instances=3 --concurrency=40 --timeout=900 --cpu-boost \
+          --env-vars-file=deploy/api.env.yaml --set-secrets="$$secrets"
+

@@ -190,7 +190,7 @@ export class VerificationAdminController {
     if (!v?.fileKey) throw new NotFoundException();
     const ext = v.fileKey.split('.').pop();
     res.set({ 'Content-Type': ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg', 'Cache-Control': 'private, no-store' });
-    return new StreamableFile(this.storage.read(v.fileKey));
+    return new StreamableFile(await this.storage.read(v.fileKey));
   }
 
   @Post(':id/approve')

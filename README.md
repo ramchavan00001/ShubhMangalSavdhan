@@ -55,7 +55,7 @@ In development:
 ## Tests
 
 ```bash
-npm test                      # unit tests: quota weeks, pricing/GST, age rules, matching
+npm test                      # unit tests: quota weeks, pricing/GST, age rules, matching, storage, cron auth
 ```
 
 ```bash
@@ -92,11 +92,55 @@ The smoke test runs 65 end-to-end checks against a running API: signup, the prof
 6. **Verification:** set `KYC_PROVIDER=manual` (required in production) until a KYC provider such as DigiLocker, IDfy or HyperVerge is connected.
 7. **AI:** create an API key at console.anthropic.com and set `ANTHROPIC_API_KEY`. Photo pre-screening runs once per upload; to cut cost, set `AI_MODEL` to a smaller Claude model.
 8. **Legal:** have a lawyer review the draft Privacy Policy, Terms, Refund Policy and Contact pages, and fill in every `[bracketed]` item.
-9. **Hosting (AWS Mumbai recommended):**
-   - Run PostgreSQL as a managed database and `npm run db:deploy --workspace=apps/api` on each release.
-   - Run the API with `NODE_ENV=production`; it refuses to start with dev OTP/payment modes or a weak `JWT_SECRET`.
-   - Point the website's `API_URL` at the API.
-   - Photos are stored on local disk (`UPLOAD_DIR`). Move them to S3 before running more than one API server: only `apps/api/src/photos/storage.service.ts` needs to change.
+9. **Hosting:** Google Cloud / Firebase, see [Hosting on Google Cloud](#hosting-on-google-cloud).
+
+## Hosting on Google Cloud
+
+| Part | Service | Region |
+|---|---|---|
+| Website (`apps/web`) | Firebase App Hosting, backend `sms-web` | asia-southeast1 (App Hosting has no Mumbai region) |
+| API (`apps/api`) | Cloud Run service `sms-api` (image from `apps/api/Dockerfile`) | asia-south1 |
+| Database | Cloud SQL for PostgreSQL 16, instance `sms-db` | asia-south1 |
+| Photos and selfies | Firebase Storage bucket, private (`storage.rules` denies all client access) | asia-south1 |
+| Daily jobs | Cloud Scheduler → `POST /cron/daily-maintenance`, `POST /cron/whatsapp-digests` (09:00 IST) | asia-south1 |
+| Secrets | Secret Manager (`sms-*`) | asia-south1 |
+
+Everything lives in `deploy/` (shared names in `deploy/config.sh`):
+
+```bash
+bash deploy/01-setup.sh          # APIs, image repository, service accounts, bucket permissions (free)
+```
+
+```bash
+bash deploy/02-cloudsql.sh       # PAID: Cloud SQL instance + DATABASE_URL secret
+```
+
+```bash
+bash deploy/03-secrets.sh        # JWT secret; MSG91/Razorpay/WhatsApp/SMTP/Anthropic keys when you have them
+```
+
+Edit `deploy/api.env.yaml` (admin phones, business details, providers), then build, migrate and deploy the API:
+
+```bash
+gcloud builds submit --region=asia-south1 --config=deploy/cloudbuild.api.yaml .
+```
+
+```bash
+gcloud run jobs execute sms-api-seed --region=asia-south1 --wait    # first release only: dropdown lists + admin accounts
+```
+
+```bash
+bash deploy/04-scheduler.sh      # daily jobs
+```
+
+Website: in the Firebase console → App Hosting, create backend `sms-web` in asia-southeast1, connect this GitHub repository, set the app root directory to `apps/web` and the live branch to `main`. Settings come from `apps/web/apphosting.yaml`; every push to `main` deploys. Then set `WEB_URL` in `deploy/api.env.yaml` to the site's URL and redeploy the API.
+
+How the pieces fit:
+
+- **Photos** use `STORAGE_DRIVER=gcs`; `apps/api/src/photos/storage.service.ts` has a local-disk and a Cloud Storage driver. Browsers never touch the bucket; the API streams files after its privacy checks.
+- **Daily jobs** use `SCHEDULER_MODE=external`: the in-process timers switch off and Cloud Scheduler calls `/cron/*` with a Google OIDC token. The API accepts only tokens for `CRON_AUDIENCE` signed for `CRON_INVOKER_EMAIL`.
+- **Migrations** run on every deploy as the Cloud Run job `sms-api-migrate` (`prisma migrate deploy`), before traffic moves to the new version.
+- Production refuses to start with console OTPs, mock payments or mock KYC, so set MSG91 and Razorpay before the first deploy.
 
 ## Project layout
 
@@ -117,10 +161,12 @@ apps/api/
   src/verification/         ID and selfie verification
   src/account/              verified email and email notifications
   src/ai/                   Claude: writing assistant, photo pre-screening, reply fallback
+  src/cron/                 Cloud Scheduler endpoints (daily jobs)
 apps/web/src/
   app/                      one folder per page (admin pages under app/admin)
   components/               header, profile cards, forms, quota meter…
   lib/                      API client, types, labels
+deploy/                     Google Cloud setup scripts, Cloud Build pipeline, API environment
 ```
 
 ## What's next (Phase 3)

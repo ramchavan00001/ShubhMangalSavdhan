@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { Cron } from '@nestjs/schedule';
 import { Payment, Prisma } from '@prisma/client';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { APP_CONFIG, AppConfig } from '../config';
+import { APP_CONFIG, AppConfig, schedulerModeFromEnv } from '../config';
 import { financialYear, formatInvoiceNumber } from '../domain/gst';
 import { PREMIUM_PRICE } from '../domain/plans';
 import { NotificationsService } from '../notifications/notifications';
@@ -183,10 +183,11 @@ export class BillingService {
   }
 
   /** Daily: expire finished subscriptions and remind members 3 days before Premium ends. */
-  @Cron('0 30 3 * * *') // 09:00 IST
+  @Cron('0 30 3 * * *', { disabled: schedulerModeFromEnv() === 'external' }) // 09:00 IST
   async dailyMaintenance() {
     const now = new Date();
-    await this.prisma.subscription.updateMany({ where: { status: 'ACTIVE', endsAt: { lte: now } }, data: { status: 'EXPIRED' } });
+    let remindersSent = 0;
+    const { count: expired } = await this.prisma.subscription.updateMany({ where: { status: 'ACTIVE', endsAt: { lte: now } }, data: { status: 'EXPIRED' } });
 
     const soon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const ending = await this.prisma.subscription.findMany({ where: { status: 'ACTIVE', endsAt: { gt: now, lte: soon } } });
@@ -203,6 +204,8 @@ export class BillingService {
         body: `Premium ends on ${sub.endsAt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}. Renew to keep 4 contact unlocks every week.`,
         link: '/plans',
       });
+      remindersSent++;
     }
+    return { expired, remindersSent };
   }
 }

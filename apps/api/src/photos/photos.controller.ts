@@ -110,6 +110,6 @@ export class PhotosController {
     }
 
     res.set({ 'Content-Type': photo.mimeType, 'Cache-Control': 'private, max-age=300' });
-    return new StreamableFile(this.storage.read(photo.fileKey));
+    return new StreamableFile(await this.storage.read(photo.fileKey));
   }
 }
